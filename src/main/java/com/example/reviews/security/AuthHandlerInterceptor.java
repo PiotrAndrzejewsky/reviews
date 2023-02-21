@@ -19,7 +19,8 @@ public class AuthHandlerInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        if (!request.getRequestURI().equals("/user/login") && !request.getRequestURI().equals("/user/save") && !request.getRequestURI().equals("/error")) {
+        if (!request.getRequestURI().equals("/user/login") && !request.getRequestURI().equals("/user/save") &&
+                !request.getRequestURI().equals("/error") && !request.getRequestURI().equals("/user/resend-activation-code")) {
             try {
                 jwtVerifier.decodeToken(request);
             }
