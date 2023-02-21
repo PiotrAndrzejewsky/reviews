@@ -1,7 +1,9 @@
 package com.example.reviews.user;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
+import com.example.reviews.email.EmailService;
+import com.example.reviews.security.AuthHandlerInterceptor;
+import com.example.reviews.security.JWTVerifierBean;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -10,45 +12,48 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Date;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 @Service
 public class UserServiceImpl implements UserService {
+
+    @Value("${app.secret-token}")
+    private String secret = "";
 
     @Autowired
     private UserRepository userRepository;
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    private final String EMAIL_REGEX = "^[\\w-\\+]+(\\.[\\w]+)*@[\\w-]+(\\.[\\w]+)*(\\.[a-z]{2,})$";
-    private final Pattern PATTERN = Pattern.compile(EMAIL_REGEX, Pattern.CASE_INSENSITIVE);
+    @Autowired
+    private JWTVerifierBean jWTVerifierBean;
 
-    @Value("${app.secret-token}")
-    private String secret = "";
+    @Autowired
+    private EmailService emailService;
 
-    @Value("${app.token-time}")
-    private int time;
+
 
     @Override
+    @Transactional
     public boolean saveUser(UserEntity userEntity) {
-        if (userRepository.findByEmail(userEntity.getEmail()).isEmpty() && isEmailValid(userEntity.getEmail())) {
+        if (userRepository.findByEmail(userEntity.getEmail()).isEmpty() && emailService.isEmailValid(userEntity.getEmail())) {
             userEntity.setPassword(passwordEncoder.encode(userEntity.getPassword()));
             userRepository.save(userEntity);
+            emailService.sendActivationCode(userEntity);
             return true;
         }
-        throw new UsernameNotFoundException("Username already taken");
+        throw new UsernameNotFoundException("Email already taken");
     }
 
     @Override
     public Long login(UserEntity userEntity, HttpServletResponse httpServletResponse) {
         if (userRepository.findByEmail(userEntity.getEmail()).isPresent()) {
             UserEntity user = userRepository.findByEmail(userEntity.getEmail()).get();
-
-            if (passwordEncoder.matches(userEntity.getPassword(), user.getPassword())) {
-                String access_token = createToken(user.getUsername(), user.getUserId());
-                String refresh_token = createToken(user.getUsername(), user.getUserId());
+            if (passwordEncoder.matches(userEntity.getPassword(), user.getPassword()) && userEntity.isActive()) {
+                String access_token = jWTVerifierBean.createToken(user.getUsername(), user.getUserId().toString());
+                String refresh_token = jWTVerifierBean.createToken(user.getUsername(), user.getUserId().toString());
                 httpServletResponse.setHeader(HttpHeaders.AUTHORIZATION, access_token);
                 httpServletResponse.setHeader("Refresh-Token", refresh_token);
                 return user.getUserId();
@@ -57,17 +62,25 @@ public class UserServiceImpl implements UserService {
         return 0L;
     }
 
-    public boolean isEmailValid(String email) {
-        Matcher matcher = PATTERN.matcher(email);
-        return matcher.matches();
+    @Override
+    public boolean sendActivationCode(UserEntity user) {
+        Optional<UserEntity> userEntity = userRepository.findByEmail(user.getEmail());
+        if (userEntity.isPresent() && !userEntity.get().isActive()) {
+            emailService.sendActivationCode(userEntity.get());
+            return true;
+        }
+        return false;
     }
 
-    public String createToken(String subject, Long id) {
-        Algorithm ALGORITHM = Algorithm.HMAC256(secret);
-        return JWT.create()
-                .withSubject(subject)
-                .withExpiresAt(new Date(System.currentTimeMillis() + time))
-                .withIssuer(id.toString())
-                .sign(ALGORITHM);
+
+    @Override
+    @Transactional
+    public boolean activate(String email, HttpServletRequest request) {
+        Optional<UserEntity> user = userRepository.findByEmail(email);
+        if (user.isPresent()  && user.get().getUserId() == Long.parseLong(AuthHandlerInterceptor.decodeToken(request, secret).getIssuer())) {
+            user.get().setActive(true);
+            return true;
+        }
+        return false;
     }
 }
