@@ -21,13 +21,17 @@ public class UserEntity {
     @Column(name = "email")
     private String email;
 
+    @Column(name = "active")
+    private boolean active;
+
     public UserEntity() {
     }
 
-    public UserEntity(String username, String password, String email) {
+    public UserEntity(String username, String password, String email, boolean active) {
         this.username = username;
         this.password = password;
         this.email = email;
+        this.active = active;
     }
 
     public Long getUserId() {
@@ -56,5 +60,13 @@ public class UserEntity {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }
