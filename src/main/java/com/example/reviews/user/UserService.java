@@ -8,6 +8,6 @@ public interface UserService {
     boolean saveUser(UserEntity userEntity);
     Long login(UserEntity userEntity, HttpServletResponse httpServletResponse);
     boolean sendActivationCode(UserEntity user);
-    boolean activate(String email, HttpServletRequest request);
+    boolean activate(HttpServletRequest request);
 
 }

@@ -38,8 +38,8 @@ public class UserController {
     }
 
     @PostMapping("/user/activate")
-    public ResponseEntity<Object> activate(@RequestBody UserEntity userEntity, HttpServletRequest request) {
-        if (userService.activate(userEntity.getEmail(), request)) {
+    public ResponseEntity<Object> activate(HttpServletRequest request) {
+        if (userService.activate(request)) {
             return new ResponseEntity<Object>(null, new HttpHeaders(), HttpStatus.OK);
         }
         ApiError apiError =

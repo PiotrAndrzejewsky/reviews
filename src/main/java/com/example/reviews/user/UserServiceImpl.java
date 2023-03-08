@@ -51,7 +51,7 @@ public class UserServiceImpl implements UserService {
     public Long login(UserEntity userEntity, HttpServletResponse httpServletResponse) {
         if (userRepository.findByEmail(userEntity.getEmail()).isPresent()) {
             UserEntity user = userRepository.findByEmail(userEntity.getEmail()).get();
-            if (passwordEncoder.matches(userEntity.getPassword(), user.getPassword()) && userEntity.isActive()) {
+            if (passwordEncoder.matches(userEntity.getPassword(), user.getPassword()) && user.isActive()) {
                 String access_token = jWTVerifierBean.createToken(user.getUsername(), user.getUserId().toString());
                 String refresh_token = jWTVerifierBean.createToken(user.getUsername(), user.getUserId().toString());
                 httpServletResponse.setHeader(HttpHeaders.AUTHORIZATION, access_token);
@@ -75,9 +75,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public boolean activate(String email, HttpServletRequest request) {
-        Optional<UserEntity> user = userRepository.findByEmail(email);
-        if (user.isPresent()  && user.get().getUserId() == Long.parseLong(AuthHandlerInterceptor.decodeToken(request, secret).getIssuer())) {
+    public boolean activate(HttpServletRequest request) {
+        Optional<UserEntity> user = userRepository.findById(Long.valueOf(AuthHandlerInterceptor.decodeToken(request, secret).getIssuer()));
+        if (user.isPresent()) {
             user.get().setActive(true);
             return true;
         }
